@@ -12,23 +12,35 @@ class ApiService {
   async request(endpoint, options = {}) {
     const url = `${this.baseUrl}${endpoint}`;
 
-    // Inject Authorization header if JWT available (for protected endpoints)
-    const jwt = getToken ? getToken() : null;
+    // Always get the latest JWT value; add Authorization if present
+    const jwt = (typeof getToken === "function") ? getToken() : null;
+
+    // Clone and merge headers correctly
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(options.headers || {})
+    };
+
+    if (jwt) {
+      headers['Authorization'] = `Bearer ${jwt}`;
+    }
 
     const config = {
-      headers: {
-        'Content-Type': 'application/json',
-        ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
-        ...options.headers,
-      },
       ...options,
+      headers,
     };
 
     try {
       const response = await fetch(url, config);
-      
+
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        // Try to parse error message from backend
+        let message = `HTTP error! status: ${response.status}`;
+        try {
+          const err = await response.json();
+          message = err?.detail || message;
+        } catch (_) { /* ignore json parse error */ }
+        throw new Error(message);
       }
 
       // Handle empty responses (e.g., DELETE requests)

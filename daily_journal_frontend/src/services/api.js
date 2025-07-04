@@ -1,3 +1,4 @@
+import { getToken } from './auth';
 // API service for journal backend communication
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -10,10 +11,14 @@ class ApiService {
   // PUBLIC_INTERFACE
   async request(endpoint, options = {}) {
     const url = `${this.baseUrl}${endpoint}`;
-    
+
+    // Inject Authorization header if JWT available (for protected endpoints)
+    const jwt = getToken ? getToken() : null;
+
     const config = {
       headers: {
         'Content-Type': 'application/json',
+        ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
         ...options.headers,
       },
       ...options,

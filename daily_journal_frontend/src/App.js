@@ -1,58 +1,66 @@
-import React, { useState, useEffect } from 'react';
-import './App.css';
-import JournalEntry from './components/JournalEntry';
-import JournalList from './components/JournalList';
-import MoodFilter from './components/MoodFilter';
-import AuthForm from './components/AuthForm';
-import apiService from './services/api';
+import React, { useState, useEffect } from "react";
+import "./App.css";
+import JournalEntry from "./components/JournalEntry";
+import JournalList from "./components/JournalList";
+import MoodFilter from "./components/MoodFilter";
+import apiService from "./services/api";
+import { demoEntries, generateId } from "./utils/demoData";
+// Clerk imports
 import {
-  login as loginApi,
-  register as registerApi,
-  isLoggedIn,
-  setToken,
-  clearToken,
-  getToken
-} from './services/auth';
-import { demoEntries, generateId } from './utils/demoData';
+  ClerkProvider,
+  SignedIn,
+  SignedOut,
+  SignIn,
+  SignUp,
+  useUser,
+  UserButton
+} from "@clerk/clerk-react";
+
+// Clerk publishable key - set this in your .env file as REACT_APP_CLERK_PUBLISHABLE_KEY
+const clerkKey =
+  process.env.REACT_APP_CLERK_PUBLISHABLE_KEY ||
+  "pk_test_replace_with_actual_key";
 
 // PUBLIC_INTERFACE
-function App() {
-  // Journal UI States
+function JournalApp({ demoModeOverride }) {
+  // Demo-mode state is retained for fallback/offline
   const [entries, setEntries] = useState([]);
   const [filteredEntries, setFilteredEntries] = useState([]);
-  const [selectedMood, setSelectedMood] = useState('all');
+  const [selectedMood, setSelectedMood] = useState("all");
   const [currentEntry, setCurrentEntry] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
-
-  // General UI states
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [demoMode, setDemoMode] = useState(demoModeOverride ?? false);
 
-  // Auth-specific states
-  const [authMode, setAuthMode] = useState('login'); // 'login' or 'register'
-  const [authLoading, setAuthLoading] = useState(false);
-  const [authError, setAuthError] = useState(null);
-  const [authed, setAuthed] = useState(isLoggedIn());
-  const [demoMode, setDemoMode] = useState(false);
+  const moodOptions = [
+    "happy",
+    "sad",
+    "excited",
+    "calm",
+    "anxious",
+    "grateful",
+    "frustrated",
+    "content",
+  ];
 
-  // Define mood options
-  const moodOptions = ['happy', 'sad', 'excited', 'calm', 'anxious', 'grateful', 'frustrated', 'content'];
-
-  // Fetch entries from backend
+  // Fetch entries from backend on mount or user signed in
   useEffect(() => {
-    if (authed) {
-      fetchEntries();
-    } else {
+    if (demoMode) {
+      setEntries(demoEntries);
       setLoading(false);
+      return;
     }
-  }, [authed]);
+    fetchEntries();
+    // eslint-disable-next-line
+  }, []);
 
-  // Filter entries when mood filter changes
+  // Filter entries when mood changes
   useEffect(() => {
-    if (selectedMood === 'all') {
+    if (selectedMood === "all") {
       setFilteredEntries(entries);
     } else {
-      setFilteredEntries(entries.filter(entry => entry.mood === selectedMood));
+      setFilteredEntries(entries.filter((entry) => entry.mood === selectedMood));
     }
   }, [entries, selectedMood]);
 
@@ -61,11 +69,13 @@ function App() {
     try {
       setLoading(true);
       const data = await apiService.getAllEntries();
-      setEntries(data.sort((a, b) => new Date(b.date) - new Date(a.date)));
+      setEntries(
+        data.sort((a, b) => new Date(b.date) - new Date(a.date))
+      );
       setError(null);
       setDemoMode(false);
     } catch (err) {
-      // If failed, enter demo mode
+      // Demo mode fallback (offline, backend error)
       setEntries(demoEntries);
       setDemoMode(true);
       setError(null);
@@ -78,29 +88,30 @@ function App() {
   const saveEntry = async (entryData) => {
     try {
       if (demoMode) {
-        // Handle demo mode locally
         const savedEntry = {
           ...entryData,
-          id: currentEntry ? currentEntry.id : generateId()
+          id: currentEntry ? currentEntry.id : generateId(),
         };
-
         if (currentEntry) {
-          setEntries(entries.map(entry =>
-            entry.id === currentEntry.id ? savedEntry : entry
-          ));
+          setEntries(
+            entries.map((entry) =>
+              entry.id === currentEntry.id ? savedEntry : entry
+            )
+          );
         } else {
           setEntries([savedEntry, ...entries]);
         }
       } else {
-        // Use API service
         const savedEntry = currentEntry
           ? await apiService.updateEntry(currentEntry.id, entryData)
           : await apiService.createEntry(entryData);
 
         if (currentEntry) {
-          setEntries(entries.map(entry =>
-            entry.id === currentEntry.id ? savedEntry : entry
-          ));
+          setEntries(
+            entries.map((entry) =>
+              entry.id === currentEntry.id ? savedEntry : entry
+            )
+          );
         } else {
           setEntries([savedEntry, ...entries]);
         }
@@ -110,14 +121,14 @@ function App() {
       setIsEditing(false);
       setError(null);
     } catch (err) {
-      setError('Unable to save entry. Please try again.');
-      console.error('Error saving entry:', err);
+      setError("Unable to save entry. Please try again.");
+      console.error("Error saving entry:", err);
     }
   };
 
   // PUBLIC_INTERFACE
   const deleteEntry = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this entry?')) {
+    if (!window.confirm("Are you sure you want to delete this entry?")) {
       return;
     }
 
@@ -125,11 +136,11 @@ function App() {
       if (!demoMode) {
         await apiService.deleteEntry(id);
       }
-      setEntries(entries.filter(entry => entry.id !== id));
+      setEntries(entries.filter((entry) => entry.id !== id));
       setError(null);
     } catch (err) {
-      setError('Unable to delete entry. Please try again.');
-      console.error('Error deleting entry:', err);
+      setError("Unable to delete entry. Please try again.");
+      console.error("Error deleting entry:", err);
     }
   };
 
@@ -151,73 +162,6 @@ function App() {
     setIsEditing(false);
   };
 
-  // PUBLIC_INTERFACE
-  const handleLogout = () => {
-    clearToken();
-    setAuthed(false);
-    setEntries([]);
-    setError(null);
-    setIsEditing(false);
-    setCurrentEntry(null);
-    setDemoMode(false);
-  };
-
-  // PUBLIC_INTERFACE
-  const handleAuth = async (username, password) => {
-    setAuthLoading(true);
-    setAuthError(null);
-    try {
-      if (authMode === 'login') {
-        await loginApi(username, password);
-      } else {
-        await registerApi(username, password);
-      }
-      setAuthed(true);
-      setEntries([]); // Will refetch entries on authed state
-      setError(null);
-      setLoading(true);
-    } catch (err) {
-      setAuthError(err.message || 'Authentication failed');
-    }
-    setAuthLoading(false);
-  };
-
-  // PUBLIC_INTERFACE
-  const switchAuthMode = () => {
-    setAuthMode(prev => (prev === 'login' ? 'register' : 'login'));
-    setAuthError(null);
-  };
-
-  // Gating UI
-  if (!authed && !demoMode) {
-    return (
-      <div className="app">
-        <header className="app-header">
-          <div className="header-left">
-            <h1 className="app-title">Daily Journal</h1>
-          </div>
-        </header>
-        <main className="app-main">
-          <AuthForm
-            mode={authMode}
-            onAuthenticate={handleAuth}
-            error={authError}
-            loading={authLoading}
-            switchMode={switchAuthMode}
-          />
-          <div style={{ marginTop: '2rem', textAlign: 'center', color: '#888' }}>
-            <p>
-              This app is private and requires login.<br />
-              {authMode === 'login'
-                ? "Don't have an account? You can register using the button above."
-                : 'Already registered? Switch above to login.'}
-            </p>
-          </div>
-        </main>
-      </div>
-    );
-  }
-
   if (loading) {
     return (
       <div className="app">
@@ -234,13 +178,9 @@ function App() {
           {demoMode && <span className="demo-badge">Demo Mode</span>}
         </div>
         {!demoMode && (
-          <button
-            className="btn btn-secondary"
-            onClick={handleLogout}
-            style={{ marginRight: '1rem' }}
-          >
-            Logout
-          </button>
+          <div>
+            <UserButton />
+          </div>
         )}
         <button
           className="new-entry-btn"
@@ -251,11 +191,7 @@ function App() {
         </button>
       </header>
 
-      {error && (
-        <div className="error-message">
-          {error}
-        </div>
-      )}
+      {error && <div className="error-message">{error}</div>}
 
       <main className="app-main">
         {isEditing ? (
@@ -285,6 +221,37 @@ function App() {
         )}
       </main>
     </div>
+  );
+}
+
+// PUBLIC_INTERFACE
+function App() {
+  // Top-level ClerkProvider: wraps everything for auth context.
+  return (
+    <ClerkProvider publishableKey={clerkKey}>
+      <SignedIn>
+        {/* Only render app after user signed in */}
+        <JournalApp />
+      </SignedIn>
+      <SignedOut>
+        {/* Show Clerk <SignIn /> and <SignUp /> if user not authed */}
+        <div className="app">
+          <header className="app-header">
+            <div className="header-left">
+              <h1 className="app-title">Daily Journal</h1>
+            </div>
+          </header>
+          <main className="app-main">
+            <div style={{ maxWidth: 400, margin: "2rem auto" }}>
+              <SignIn signUpUrl="/sign-up" />
+            </div>
+            <div style={{ maxWidth: 400, margin: "2rem auto" }}>
+              <SignUp />
+            </div>
+          </main>
+        </div>
+      </SignedOut>
+    </ClerkProvider>
   );
 }
 

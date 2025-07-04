@@ -4,6 +4,7 @@
   "private": true,
   "description": "A minimal, distraction-free journaling app built with React",
   "dependencies": {
+    "@clerk/clerk-react": "^4.32.5",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-scripts": "^5.0.1"

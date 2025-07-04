@@ -1,5 +1,7 @@
-import { getToken } from './auth';
-// API service for journal backend communication
+/**
+ * API service for journal backend communication.
+ * Note: Clerk handles authentication; frontend will not set JWT or Authorization header.
+ */
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
@@ -12,18 +14,11 @@ class ApiService {
   async request(endpoint, options = {}) {
     const url = `${this.baseUrl}${endpoint}`;
 
-    // Always get the latest JWT value; add Authorization if present
-    const jwt = (typeof getToken === "function") ? getToken() : null;
-
-    // Clone and merge headers correctly
+    // No Authorization header here; Clerk handles auth now.
     const headers = {
       'Content-Type': 'application/json',
       ...(options.headers || {})
     };
-
-    if (jwt) {
-      headers['Authorization'] = `Bearer ${jwt}`;
-    }
 
     const config = {
       ...options,
